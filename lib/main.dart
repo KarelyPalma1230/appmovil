@@ -1,12 +1,28 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:app/gremio/gremio_home.dart';
+import 'package:app/home/home_screen.dart';
+import 'package:app/inventario/inventario_home.dart';
 import 'package:flutter/material.dart';
 import 'package:health/health.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:carp_serializable/carp_serializable.dart';
 
-void main() => runApp(HealthApp());
+void main() => runApp(MyApp());
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false, // Quita el banner de debug si es necesario
+      title: 'Health App',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: HealthApp(),
+    );
+  }
+}
 
 class HealthApp extends StatefulWidget {
   @override
@@ -37,7 +53,7 @@ class _HealthAppState extends State<HealthApp> {
   int _nofSteps = 0;
   List<RecordingMethod> recordingMethodsToFilter = [];
 
-  // Listas de tipos de datos específicos para Android e iOS
+  // Health data types for Android and iOS
   final List<HealthDataType> dataTypesAndroid = [
     HealthDataType.STEPS,
     HealthDataType.HEART_RATE,
@@ -50,7 +66,8 @@ class _HealthAppState extends State<HealthApp> {
     HealthDataType.WEIGHT,
   ];
 
-  List<HealthDataType> get types => Platform.isAndroid ? dataTypesAndroid : dataTypesIOS;
+  List<HealthDataType> get types =>
+      Platform.isAndroid ? dataTypesAndroid : dataTypesIOS;
 
   List<HealthDataAccess> get permissions => types
       .map((type) => [
@@ -61,8 +78,8 @@ class _HealthAppState extends State<HealthApp> {
             HealthDataType.IRREGULAR_HEART_RATE_EVENT,
             HealthDataType.EXERCISE_TIME,
           ].contains(type)
-          ? HealthDataAccess.READ
-          : HealthDataAccess.READ_WRITE)
+              ? HealthDataAccess.READ
+              : HealthDataAccess.READ_WRITE)
       .toList();
 
   @override
@@ -85,12 +102,15 @@ class _HealthAppState extends State<HealthApp> {
     await Permission.activityRecognition.request();
     await Permission.location.request();
 
-    bool? hasPermissions = await Health().hasPermissions(types, permissions: permissions);
+    bool? hasPermissions =
+        await Health().hasPermissions(types, permissions: permissions);
 
     if (hasPermissions == null || !hasPermissions) {
       try {
-        bool authorized = await Health().requestAuthorization(types, permissions: permissions);
-        setState(() => _state = authorized ? AppState.AUTHORIZED : AppState.AUTH_NOT_GRANTED);
+        bool authorized = await Health()
+            .requestAuthorization(types, permissions: permissions);
+        setState(() => _state =
+            authorized ? AppState.AUTHORIZED : AppState.AUTH_NOT_GRANTED);
       } catch (error) {
         debugPrint("Exception in authorize: $error");
       }
@@ -112,60 +132,22 @@ class _HealthAppState extends State<HealthApp> {
         recordingMethodsToFilter: recordingMethodsToFilter,
       );
       _healthDataList = Health().removeDuplicates(healthData);
-      setState(() => _state = _healthDataList.isEmpty ? AppState.NO_DATA : AppState.DATA_READY);
+      setState(() => _state =
+          _healthDataList.isEmpty ? AppState.NO_DATA : AppState.DATA_READY);
     } catch (error) {
       debugPrint("Exception in fetchData: $error");
       setState(() => _state = AppState.NO_DATA);
     }
   }
 
-  Widget buildDataList() {
-    if (_healthDataList.isEmpty) {
-      return Center(child: Text('No data available.'));
-    }
-    return ListView.builder(
-      itemCount: _healthDataList.length,
-      itemBuilder: (context, index) {
-        HealthDataPoint point = _healthDataList[index];
-        return ListTile(
-          title: Text("${point.typeString}: ${point.value}"),
-          subtitle: Text("${point.dateFrom} - ${point.dateTo}"),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(title: Text('Health Example')),
-        body: Column(
-          children: [
-            Wrap(
-              spacing: 10,
-              children: [
-                if (Platform.isAndroid)
-                  TextButton(
-                    onPressed: checkHealthConnectAvailability,
-                    child: Text("Check Health Connect Status"),
-                  ),
-                TextButton(
-                  onPressed: authorize,
-                  child: Text("Request Permissions"),
-                ),
-                TextButton(
-                  onPressed: fetchData,
-                  child: Text("Fetch Health Data"),
-                ),
-              ],
-            ),
-            Expanded(
-              child: _state == AppState.DATA_READY ? buildDataList() : Center(child: Text("No data fetched")),
-            ),
-          ],
-        ),
-      ),
+    return HomeScreen(
+      healthDataList: _healthDataList,
+      fetchHealthData: fetchData,
+      authorize: authorize,
+      checkHealthConnectAvailability: checkHealthConnectAvailability,
+      appState: _state,
     );
   }
 }
